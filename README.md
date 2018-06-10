@@ -51,7 +51,7 @@ Both the client and the server support options that can be passed either through
 
 - #### Nickname
     - Description: Nickname you want to use to identify you on the server
-    - Variable: `GS2W_NICKNAME
+    - Variable: `GS2W_NICKNAME`
     - Argument: `--nickname` or `-n`
 
 - #### Server
