@@ -37,10 +37,10 @@ Both the client and the server support options that can be passed either through
     - Variable: `GS2W_PASS`
     - Argument: `--password` or `-p`
 
-#### Port
-- Description: Port the server will listen on
-- Variable: `GS2W_PORT`
-- Argument: `--port` or `-o`
+- #### Port
+    - Description: Port the server will listen on
+    - Variable: `GS2W_PORT`
+    - Argument: `--port` or `-o`
 
 ### Client
 
