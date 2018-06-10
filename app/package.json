@@ -1,0 +1,35 @@
+{
+  "name": "gs2w-chat",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "bin": "index.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "scripts": {
+    "start": "node index.js",
+    "flatten": "pnpm i --shamefully-flatten --force",
+    "build:macos": "npm run flatten && pkg . -t node8-macos --out-path=dist",
+    "build:windows": "npm run flatten && pkg . -t node8-windows --out-path=dist",
+    "build:linux": "npm run flatten && pkg . -t node8-linux --out-path=dist",
+    "build": "npm run flatten && pkg . --out-path=dist"
+  },
+  "dependencies": {
+    "argv": "^0.0.2",
+    "blessed": "^0.1.81",
+    "lodash.merge": "^4.6.1",
+    "socket.io-client": "^2.1.1",
+    "sugar-env": "^1.4.0"
+  },
+  "devDependencies": {
+    "pkg": "^4.3.1"
+  },
+  "pkg": {
+    "targets": [
+      "node8-linux",
+      "node8-macos",
+      "node8-windows"
+    ]
+  }
+}
