@@ -2,10 +2,15 @@
 
 const argv = require('argv')
 const ip = require('./lib/ip')
+const Crypto = require('crypto')
 const merge = require('lodash.merge')
 
 const http = require('http').Server((req, res) => { })
 const io = require('socket.io')(http)
+
+const crypto = Crypto.createDiffieHellman(256)
+crypto.generateKeys()
+const publicKey = crypto.getPublicKey()
 
 argv.option({
   name: 'username',
@@ -60,13 +65,28 @@ io.set('authorization', (handshake, callback) => {
   allow()
 })
 
+const secrets = new Map()
+
 io.on('connection', (socket) => {
   const { nickname } = socket.handshake.query
 
   users.push({ nickname })
   socket.broadcast.emit('user-joined', { nickname })
-  socket.emit('user-list', users)
-  socket.emit('message-history', messages)
+
+  socket.on('ready', () => {
+    socket.emit('user-list', users)
+    socket.emit('message-history', messages)
+  })
+
+  socket.emit('key-params', {
+    key: publicKey.toString('base64'),
+    prime: crypto.getPrime().toString('base64'),
+    gen: crypto.getGenerator().toString('base64')
+  })
+
+  socket.on('public-key', (key) => {
+    secrets.set(socket.id, crypto.computeSecret(key, 'base64').toString('base64'))
+  })
 
   socket.on('disconnect', () => {
     users = users.filter(user => user.nickname !== nickname)
@@ -74,8 +94,15 @@ io.on('connection', (socket) => {
   })
 
   socket.on('new-message', (data) => {
+    const [ message, iv ] = data.message.split(':')
+
+    const secret = secrets.get(socket.id)
+    const decipher = Crypto.createDecipheriv('AES256', Buffer.from(secret, 'base64'), Buffer.from(iv, 'base64'))
+    const plain = Buffer.concat(decipher.update(message, 'base64') + decipher.final())
+    console.log(plain.toString('utf8'))
+
     messages.push(data)
-    socket.broadcast.emit('new-message', data)
+    io.emit('new-message', data)
   })
 })
 

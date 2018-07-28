@@ -1,6 +1,7 @@
 'use strict'
 
 const argv = require('argv')
+const Crypto = require('crypto')
 const blessed = require('blessed')
 const merge = require('lodash.merge')
 const io = require('socket.io-client')
@@ -39,7 +40,7 @@ if (!config.nickname || !config.server) {
 }
 
 class Screen extends EventEmitter {
-  constructor () {
+  constructor (socket, secret) {
     super()
 
     this.$currentUser = {
@@ -54,10 +55,10 @@ class Screen extends EventEmitter {
       process.exit(0)
     })
 
+    this.$socket = socket
+
     this.$chat = new Chat(this)
     this.$userList = new UserList(this)
-
-    this.$socket = io(`http://${config.server}`, { query: `nickname=${config.nickname}&credentials=${config.credentials}` })
 
     this.$socket.on('connect_error', (err) => {
       this.emit('new-system-error', `Connection error: ${err.message}`)
@@ -72,7 +73,12 @@ class Screen extends EventEmitter {
     })
 
     this.$chat.on('new-message', (data) => {
-      this.$socket.emit('new-message', data)
+      const { user, message } = data
+      const iv = Crypto.randomBytes(16)
+      const cipher = Crypto.createCipheriv('AES256', secret, iv)
+      const buff = Buffer.concat([cipher.update(message, 'utf8'), cipher.final()])
+      const encrypted = buff.toString('base64') + `:${iv.toString('base64')}`
+      this.$socket.emit('new-message', { user, message: encrypted })
     })
 
     this.$socket.on('new-message', (data) => {
@@ -94,6 +100,8 @@ class Screen extends EventEmitter {
     this.$socket.on('message-history', (messages) => {
       this.$chat.setMessages(messages)
     })
+
+    this.$socket.emit('ready')
   }
 
   get me () {
@@ -109,6 +117,34 @@ class Screen extends EventEmitter {
   }
 }
 
-const screen = new Screen()
+class App {
+  async setupSecret () {
+    return new Promise((resolve, reject) => {
+      const socket = io(`http://${config.server}?nickname=${config.nickname}&credentials=${config.credentials}`)
 
-screen.render()
+      socket.on('key-params', (params) => {
+        const { key, prime, gen } = params
+
+        const crypto = Crypto.createDiffieHellman(Buffer.from(prime, 'base64'), Buffer.from(gen, 'base64'))
+        crypto.generateKeys()
+        const publicKey = crypto.getPublicKey()
+        const secret = crypto.computeSecret(key, 'base64')
+
+        socket.emit('public-key', publicKey.toString('base64'))
+
+        resolve({ publicKey, secret, socket })
+      })
+    })
+  }
+
+  async start () {
+    const { publicKey, secret, socket } = await this.setupSecret()
+    const screen = new Screen(socket, publicKey, secret)
+
+    screen.render()
+  }
+}
+
+const app = new App()
+
+app.start()

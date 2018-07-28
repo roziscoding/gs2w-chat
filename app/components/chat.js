@@ -81,7 +81,6 @@ class Chat extends EventEmitter {
 
   onSubmit (value) {
     const me = this.$screen.me
-    this.addMessage(format(NEW_MESSAGE, me.nickname, value))
     this.emit('new-message', { user: me, message: value })
   }
 
